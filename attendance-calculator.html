@@ -1,0 +1,888 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BunkMeter — Attendance Calculator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  /* ── DARK THEME (default) ── */
+  [data-theme="dark"] {
+    --bg: #0d0d0d;
+    --surface: #161616;
+    --card: #1e1e1e;
+    --border: rgba(255,255,255,0.09);
+    --border-strong: rgba(255,255,255,0.18);
+    --text: #f0f0f0;
+    --text-inv: #0d0d0d;
+    --muted: #666;
+    --accent: #ffffff;
+    --accent-dim: rgba(255,255,255,0.08);
+    --accent-hover: rgba(255,255,255,0.12);
+    --ring-track: #2a2a2a;
+    --toggle-bg: #222;
+    --toggle-knob: #fff;
+    --shadow: rgba(0,0,0,0.5);
+    --grid-color: rgba(255,255,255,0.025);
+    /* status colors — muted, not harsh */
+    --clr-safe: #7ec8a0;
+    --clr-safe-bg: rgba(126,200,160,0.08);
+    --clr-safe-border: rgba(126,200,160,0.25);
+    --clr-danger: #e07070;
+    --clr-danger-bg: rgba(224,112,112,0.08);
+    --clr-danger-border: rgba(224,112,112,0.25);
+    --clr-warn: #c8a86e;
+    --clr-warn-bg: rgba(200,168,110,0.08);
+    --clr-warn-border: rgba(200,168,110,0.25);
+  }
+
+  /* ── LIGHT THEME ── */
+  [data-theme="light"] {
+    --bg: #f5f5f5;
+    --surface: #ececec;
+    --card: #ffffff;
+    --border: rgba(0,0,0,0.09);
+    --border-strong: rgba(0,0,0,0.2);
+    --text: #0d0d0d;
+    --text-inv: #ffffff;
+    --muted: #888;
+    --accent: #000000;
+    --accent-dim: rgba(0,0,0,0.06);
+    --accent-hover: rgba(0,0,0,0.1);
+    --ring-track: #d8d8d8;
+    --toggle-bg: #ddd;
+    --toggle-knob: #000;
+    --shadow: rgba(0,0,0,0.12);
+    --grid-color: rgba(0,0,0,0.035);
+    /* status colors — muted, not harsh */
+    --clr-safe: #3a9068;
+    --clr-safe-bg: rgba(58,144,104,0.07);
+    --clr-safe-border: rgba(58,144,104,0.22);
+    --clr-danger: #b84f4f;
+    --clr-danger-bg: rgba(184,79,79,0.07);
+    --clr-danger-border: rgba(184,79,79,0.22);
+    --clr-warn: #9a7230;
+    --clr-warn-bg: rgba(154,114,48,0.07);
+    --clr-warn-border: rgba(154,114,48,0.22);
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+    transition: background 0.35s ease, color 0.35s ease;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(var(--grid-color) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 0 20px;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ── THEME TOGGLE ── */
+  .theme-toggle-wrap {
+    position: fixed;
+    top: 20px;
+    right: 24px;
+    z-index: 100;
+  }
+
+  .theme-toggle {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--card);
+    border: 1px solid var(--border-strong);
+    border-radius: 999px;
+    padding: 8px 16px 8px 10px;
+    cursor: pointer;
+    box-shadow: 0 4px 20px var(--shadow);
+    transition: background 0.3s, border-color 0.3s, box-shadow 0.3s;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.5px;
+    user-select: none;
+  }
+
+  .theme-toggle:hover {
+    border-color: var(--accent);
+    color: var(--text);
+  }
+
+  .toggle-track {
+    width: 36px;
+    height: 20px;
+    background: var(--toggle-bg);
+    border-radius: 999px;
+    position: relative;
+    border: 1px solid var(--border-strong);
+    transition: background 0.3s;
+    flex-shrink: 0;
+  }
+
+  .toggle-knob {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 14px;
+    height: 14px;
+    background: var(--toggle-knob);
+    border-radius: 50%;
+    transition: transform 0.3s cubic-bezier(.34,1.56,.64,1), background 0.3s;
+  }
+
+  [data-theme="light"] .toggle-knob { transform: translateX(16px); }
+
+  /* ── HEADER ── */
+  header {
+    padding: 72px 0 36px;
+    text-align: center;
+  }
+
+  .logo-tag {
+    display: inline-block;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    border: 1px solid var(--border-strong);
+    padding: 5px 14px;
+    border-radius: 2px;
+    margin-bottom: 20px;
+    transition: all 0.3s;
+  }
+
+  h1 {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: clamp(42px, 8vw, 72px);
+    line-height: 1;
+    letter-spacing: -3px;
+    color: var(--text);
+    transition: color 0.3s;
+  }
+
+  h1 em {
+    font-style: normal;
+    -webkit-text-stroke: 1.5px var(--text);
+    color: transparent;
+    transition: -webkit-text-stroke 0.3s;
+  }
+
+  .subtitle {
+    margin-top: 14px;
+    color: var(--muted);
+    font-size: 15px;
+    font-weight: 300;
+  }
+
+  /* ── QUICK CALC ── */
+  .quick-calc {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 32px;
+    margin: 36px 0 28px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 2px 24px var(--shadow);
+    transition: background 0.3s, border-color 0.3s, box-shadow 0.3s;
+  }
+
+  .quick-calc::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    opacity: 0.4;
+  }
+
+  .section-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 18px;
+  }
+
+  .threshold-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 22px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .threshold-label {
+    font-size: 11px;
+    color: var(--muted);
+    margin-right: 4px;
+    font-family: 'DM Mono', monospace;
+  }
+
+  .threshold-btn {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    padding: 6px 14px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .threshold-btn:hover {
+    border-color: var(--border-strong);
+    color: var(--text);
+    background: var(--accent-dim);
+  }
+
+  .threshold-btn.active {
+    border-color: var(--accent);
+    color: var(--text-inv);
+    background: var(--accent);
+  }
+
+  .input-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 18px;
+  }
+
+  .input-group { display: flex; flex-direction: column; gap: 8px; }
+
+  .input-group label {
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--muted);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    font-family: 'DM Mono', monospace;
+  }
+
+  .input-group input {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 26px;
+    font-weight: 500;
+    padding: 14px 16px;
+    outline: none;
+    transition: border-color 0.2s, background 0.3s, color 0.3s;
+    width: 100%;
+  }
+
+  .input-group input:focus { border-color: var(--accent); }
+  .input-group input::-webkit-inner-spin-button,
+  .input-group input::-webkit-outer-spin-button { -webkit-appearance: none; }
+
+  .calc-btn {
+    width: 100%;
+    padding: 15px;
+    background: var(--accent);
+    color: var(--text-inv);
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 14px;
+    letter-spacing: 2px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.25s;
+    text-transform: uppercase;
+  }
+
+  .calc-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 28px var(--shadow);
+    opacity: 0.85;
+  }
+
+  .calc-btn:active { transform: translateY(0); }
+
+  /* ── RESULT ── */
+  .result-panel {
+    margin-top: 24px;
+    display: none;
+    animation: slideUp 0.35s ease;
+  }
+
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .result-panel.visible { display: block; }
+
+  .result-top {
+    display: flex;
+    align-items: center;
+    gap: 22px;
+    margin-bottom: 14px;
+    padding: 20px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    transition: background 0.3s, border-color 0.3s;
+  }
+
+  .percent-ring { position: relative; width: 88px; height: 88px; flex-shrink: 0; }
+  .percent-ring svg { transform: rotate(-90deg); width: 88px; height: 88px; }
+  .ring-bg   { fill: none; stroke: var(--ring-track); stroke-width: 6; transition: stroke 0.3s; }
+  .ring-fill { fill: none; stroke-width: 6; stroke-linecap: round; transition: stroke-dashoffset 0.65s ease, stroke 0.3s; }
+
+  .percent-text {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'DM Mono', monospace; font-size: 15px; font-weight: 500;
+  }
+
+  .result-summary { flex: 1; }
+
+  .result-status {
+    font-family: 'Syne', sans-serif;
+    font-size: 20px; font-weight: 700; margin-bottom: 5px; color: var(--text);
+  }
+
+  .result-detail { font-size: 13px; color: var(--muted); line-height: 1.6; }
+
+  .result-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+  .res-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px; padding: 18px;
+    transition: background 0.3s, border-color 0.3s;
+  }
+
+  .rc-label {
+    font-size: 10px; color: var(--muted);
+    letter-spacing: 1px; text-transform: uppercase;
+    font-family: 'DM Mono', monospace; margin-bottom: 8px;
+  }
+
+  .rc-value { font-family: 'DM Mono', monospace; font-size: 32px; font-weight: 500; color: var(--text); transition: color 0.4s; }
+  .rc-muted { color: var(--muted) !important; }
+  .rc-sub   { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+  /* ── STATUS STATE CLASSES ── */
+  .state-safe {
+    border-color: var(--clr-safe-border) !important;
+    background: var(--clr-safe-bg) !important;
+    box-shadow: 0 0 0 1px var(--clr-safe-border), 0 6px 28px var(--clr-safe-bg);
+    transition: border-color 0.4s, background 0.4s, box-shadow 0.4s !important;
+  }
+  .state-danger {
+    border-color: var(--clr-danger-border) !important;
+    background: var(--clr-danger-bg) !important;
+    box-shadow: 0 0 0 1px var(--clr-danger-border), 0 6px 28px var(--clr-danger-bg);
+    transition: border-color 0.4s, background 0.4s, box-shadow 0.4s !important;
+  }
+  .res-card-safe   { border-color: var(--clr-safe-border)   !important; background: var(--clr-safe-bg) !important; }
+  .res-card-danger { border-color: var(--clr-danger-border) !important; background: var(--clr-danger-bg) !important; }
+  .val-safe   { color: var(--clr-safe)   !important; }
+  .val-danger { color: var(--clr-danger) !important; }
+
+  .divider {
+    border: none; border-top: 1px solid var(--border);
+    margin: 32px 0; transition: border-color 0.3s;
+  }
+
+  /* ── SUBJECTS ── */
+  .multi-section { margin: 8px 0 32px; }
+
+  .section-header {
+    display: flex; align-items: center;
+    justify-content: space-between; margin-bottom: 14px;
+  }
+
+  .section-title {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700; font-size: 17px; color: var(--text); transition: color 0.3s;
+  }
+
+  .add-btn {
+    font-family: 'DM Mono', monospace; font-size: 11px;
+    padding: 7px 16px; border-radius: 6px;
+    border: 1px solid var(--border-strong);
+    background: transparent; color: var(--text);
+    cursor: pointer; transition: all 0.2s;
+    display: flex; align-items: center; gap: 6px;
+  }
+
+  .add-btn:hover { background: var(--accent-dim); border-color: var(--accent); }
+
+  .subjects-list { display: flex; flex-direction: column; gap: 10px; }
+
+  .subject-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 12px; padding: 16px 18px;
+    display: grid;
+    grid-template-columns: 1fr 90px 90px 100px 36px;
+    gap: 10px; align-items: center;
+    animation: slideUp 0.3s ease;
+    transition: border-color 0.2s, background 0.3s;
+  }
+
+  .subject-card:hover { border-color: var(--border-strong); }
+
+  .subject-input {
+    background: transparent; border: none;
+    border-bottom: 1px solid var(--border);
+    color: var(--text); font-family: 'DM Sans', sans-serif;
+    font-size: 14px; padding: 4px 0; outline: none;
+    transition: border-color 0.2s, color 0.3s;
+  }
+
+  .subject-input:focus { border-color: var(--accent); }
+  .subject-input::placeholder { color: var(--muted); }
+
+  .subject-number {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 6px; color: var(--text);
+    font-family: 'DM Mono', monospace; font-size: 14px;
+    padding: 7px 10px; outline: none; width: 100%;
+    text-align: center; transition: border-color 0.2s, background 0.3s, color 0.3s;
+  }
+
+  .subject-number:focus { border-color: var(--accent); }
+  .subject-number::-webkit-inner-spin-button { -webkit-appearance: none; }
+  .subject-number::placeholder { color: var(--muted); }
+
+  .subject-badge {
+    font-family: 'DM Mono', monospace; font-size: 12px; font-weight: 500;
+    text-align: center; padding: 6px 8px; border-radius: 6px;
+    border: 1px solid var(--border); color: var(--muted);
+    background: var(--surface); transition: all 0.25s;
+  }
+
+  .badge-safe   { color: var(--clr-safe);   border-color: var(--clr-safe-border);   background: var(--clr-safe-bg); }
+  .badge-warn   { color: var(--clr-warn);   border-color: var(--clr-warn-border);   background: var(--clr-warn-bg); }
+  .badge-danger { color: var(--clr-danger); border-color: var(--clr-danger-border); background: var(--clr-danger-bg); }
+
+  .delete-btn {
+    background: none; border: 1px solid transparent;
+    color: var(--muted); cursor: pointer; font-size: 18px;
+    line-height: 1; padding: 4px 8px; border-radius: 6px; transition: all 0.2s;
+  }
+
+  .delete-btn:hover { color: var(--text); border-color: var(--border-strong); background: var(--accent-dim); }
+
+  .subjects-summary {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 12px; padding: 22px; margin-top: 14px;
+    display: none; transition: background 0.3s, border-color 0.3s;
+  }
+
+  .subjects-summary.visible { display: block; }
+
+  .summary-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; text-align: center; }
+
+  .sum-item .sum-val {
+    font-family: 'Syne', sans-serif; font-size: 28px; font-weight: 800;
+    color: var(--text); margin-bottom: 4px; transition: color 0.3s;
+  }
+
+  .sum-item .sum-lab {
+    font-size: 10px; color: var(--muted); font-family: 'DM Mono', monospace;
+    letter-spacing: 1px; text-transform: uppercase;
+  }
+
+  .sum-val.pct-safe   { color: var(--clr-safe)   !important; }
+  .sum-val.pct-warn   { color: var(--clr-warn)   !important; }
+  .sum-val.pct-danger { color: var(--clr-danger) !important; }
+
+  /* ── TIPS ── */
+  .tips-section {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 16px; padding: 28px 30px; margin: 0 0 60px;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 24px;
+    transition: background 0.3s, border-color 0.3s;
+  }
+
+  .tip-block h3 {
+    font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 700;
+    margin-bottom: 8px; color: var(--text); transition: color 0.3s;
+  }
+
+  .tip-block p { font-size: 13px; color: var(--muted); line-height: 1.7; }
+
+  footer {
+    text-align: center; padding: 18px;
+    font-size: 11px; color: var(--muted);
+    border-top: 1px solid var(--border);
+    font-family: 'DM Mono', monospace; letter-spacing: 0.5px;
+    transition: color 0.3s, border-color 0.3s;
+  }
+
+  @media (max-width: 600px) {
+    .input-grid { grid-template-columns: 1fr; }
+    .result-cards { grid-template-columns: 1fr; }
+    .tips-section { grid-template-columns: 1fr; }
+    .summary-grid { grid-template-columns: 1fr 1fr; }
+    .theme-toggle-wrap { top: 12px; right: 14px; }
+  }
+
+  @media (max-width: 480px) {
+    .subject-card { grid-template-columns: 1fr 1fr; }
+    .quick-calc { padding: 20px; }
+    .theme-toggle .toggle-label { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Theme Toggle -->
+<div class="theme-toggle-wrap">
+  <div class="theme-toggle" onclick="toggleTheme()" role="button" aria-label="Toggle theme">
+    <div class="toggle-track">
+      <div class="toggle-knob"></div>
+    </div>
+    <span id="themeIcon">🌙</span>
+    <span class="toggle-label" id="themeLabel">Dark</span>
+  </div>
+</div>
+
+<div class="container">
+  <header>
+    <div class="logo-tag">Attendance Tool</div>
+    <h1>Bunk<em>Meter</em></h1>
+    <p class="subtitle">How many classes can you skip? Let's find out.</p>
+  </header>
+
+  <!-- Quick Calculator -->
+  <div class="quick-calc">
+    <div class="section-label">Quick Calculator</div>
+
+    <div class="threshold-row">
+      <span class="threshold-label">Required:</span>
+      <button class="threshold-btn" onclick="setThreshold(60)">60%</button>
+      <button class="threshold-btn" onclick="setThreshold(65)">65%</button>
+      <button class="threshold-btn" onclick="setThreshold(70)">70%</button>
+      <button class="threshold-btn active" onclick="setThreshold(75)">75%</button>
+      <button class="threshold-btn" onclick="setThreshold(80)">80%</button>
+      <button class="threshold-btn" onclick="setThreshold(85)">85%</button>
+      <button class="threshold-btn" onclick="setThreshold(90)">90%</button>
+    </div>
+
+    <div class="input-grid">
+      <div class="input-group">
+        <label>Classes Attended</label>
+        <input type="number" id="attended" placeholder="42" min="0" oninput="autoCalc()">
+      </div>
+      <div class="input-group">
+        <label>Total Classes Held</label>
+        <input type="number" id="total" placeholder="60" min="0" oninput="autoCalc()">
+      </div>
+    </div>
+
+    <button class="calc-btn" onclick="calculate()">Calculate My Attendance</button>
+
+    <div class="result-panel" id="result">
+      <div class="result-top">
+        <div class="percent-ring">
+          <svg viewBox="0 0 88 88">
+            <circle class="ring-bg" cx="44" cy="44" r="37"/>
+            <circle class="ring-fill" id="ringFill" cx="44" cy="44" r="37"
+              stroke-dasharray="232.48" stroke-dashoffset="232.48"/>
+          </svg>
+          <div class="percent-text"><span id="percentText">0%</span></div>
+        </div>
+        <div class="result-summary">
+          <div class="result-status" id="statusText"></div>
+          <div class="result-detail" id="detailText"></div>
+        </div>
+      </div>
+      <div class="result-cards">
+        <div class="res-card">
+          <div class="rc-label">Classes you can BUNK</div>
+          <div class="rc-value" id="bunkCount">—</div>
+          <div class="rc-sub" id="bunkSub"></div>
+        </div>
+        <div class="res-card">
+          <div class="rc-label">Classes you must ATTEND</div>
+          <div class="rc-value" id="mustAttend">—</div>
+          <div class="rc-sub" id="mustSub"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- Multi Subject -->
+  <div class="multi-section">
+    <div class="section-header">
+      <div class="section-title">Subject Tracker</div>
+      <button class="add-btn" onclick="addSubject()">＋ Add Subject</button>
+    </div>
+
+    <div class="subjects-list" id="subjectsList"></div>
+
+    <div class="subjects-summary" id="subSummary">
+      <div class="section-label" style="margin-bottom:16px;">Overall Summary</div>
+      <div class="summary-grid">
+        <div class="sum-item">
+          <div class="sum-val" id="sumAttended">—</div>
+          <div class="sum-lab">Total Attended</div>
+        </div>
+        <div class="sum-item">
+          <div class="sum-val" id="sumTotal">—</div>
+          <div class="sum-lab">Total Classes</div>
+        </div>
+        <div class="sum-item">
+          <div class="sum-val" id="sumPercent">—</div>
+          <div class="sum-lab">Combined %</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- Tips -->
+  <div class="tips-section">
+    <div class="tip-block">
+      <h3>📐 The 75% Rule</h3>
+      <p>Most colleges require 75% attendance. For every 4 classes, you can skip 1 and stay safe.</p>
+    </div>
+    <div class="tip-block">
+      <h3>🧮 How It Works</h3>
+      <p>Attendance % = (Attended ÷ Total) × 100. The bunk limit is the max you can miss while staying above the threshold.</p>
+    </div>
+    <div class="tip-block">
+      <h3>⚡ Pro Tip</h3>
+      <p>Track each subject separately — some professors are stricter. Keep a 5–10% buffer above the requirement.</p>
+    </div>
+    <div class="tip-block">
+      <h3>🎯 Recovery Mode</h3>
+      <p>Below threshold? We tell you exactly how many consecutive classes to attend to get back on track.</p>
+    </div>
+  </div>
+
+  <footer>BunkMeter — For educational purposes only. Always check your college's attendance policy.</footer>
+</div>
+
+<script>
+let threshold = 75;
+let subjects = [];
+let subjectCounter = 0;
+
+function toggleTheme() {
+  const html = document.documentElement;
+  const isDark = html.getAttribute('data-theme') === 'dark';
+  html.setAttribute('data-theme', isDark ? 'light' : 'dark');
+  document.getElementById('themeIcon').textContent  = isDark ? '☀️' : '🌙';
+  document.getElementById('themeLabel').textContent = isDark ? 'Light' : 'Dark';
+  // re-render ring if visible
+  const a = parseFloat(document.getElementById('attended').value);
+  const t = parseFloat(document.getElementById('total').value);
+  if (!isNaN(a) && !isNaN(t) && t > 0) calculate();
+}
+
+function getColors() {
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  return { solid: isDark ? '#ffffff' : '#000000', muted: isDark ? '#555' : '#aaa' };
+}
+
+function setThreshold(val) {
+  threshold = val;
+  document.querySelectorAll('.threshold-btn').forEach(b => {
+    b.classList.toggle('active', b.textContent === val + '%');
+  });
+  autoCalc();
+  updateAllSubjects();
+}
+
+function autoCalc() {
+  const a = parseFloat(document.getElementById('attended').value);
+  const t = parseFloat(document.getElementById('total').value);
+  if (!isNaN(a) && !isNaN(t) && t > 0 && a >= 0 && a <= t) calculate();
+}
+
+function calculate() {
+  const attended = parseFloat(document.getElementById('attended').value);
+  const total    = parseFloat(document.getElementById('total').value);
+  if (isNaN(attended) || isNaN(total) || total <= 0 || attended < 0 || attended > total) return;
+
+  const pct = (attended / total) * 100;
+  document.getElementById('result').classList.add('visible');
+
+  const isSafe   = pct >= threshold;
+  const safeCol  = 'var(--clr-safe)';
+  const dangerCol= 'var(--clr-danger)';
+  const col      = isSafe ? safeCol : dangerCol;
+
+  const circumference = 232.48;
+  const ring = document.getElementById('ringFill');
+  ring.style.strokeDashoffset = circumference - (Math.min(pct,100)/100) * circumference;
+  ring.style.stroke = col;
+
+  const pEl = document.getElementById('percentText');
+  pEl.textContent = pct.toFixed(1) + '%';
+  pEl.style.color = col;
+
+  // Result-top panel glow
+  const resultTop = document.querySelector('.result-top');
+  resultTop.classList.toggle('state-safe',   isSafe);
+  resultTop.classList.toggle('state-danger', !isSafe);
+
+  const statusEl = document.getElementById('statusText');
+  const detailEl = document.getElementById('detailText');
+  if (isSafe) {
+    statusEl.textContent = '✓ You\'re Safe';
+    statusEl.style.color = safeCol;
+    detailEl.textContent = `Your attendance is ${pct.toFixed(1)}%, which is ${(pct-threshold).toFixed(1)}% above the required ${threshold}%.`;
+  } else {
+    statusEl.textContent = '✗ Below Threshold';
+    statusEl.style.color = dangerCol;
+    detailEl.textContent = `Your attendance is ${pct.toFixed(1)}%, which is ${(threshold-pct).toFixed(1)}% below the required ${threshold}%.`;
+  }
+
+  const bunkEl  = document.getElementById('bunkCount');
+  const bunkSub = document.getElementById('bunkSub');
+  const mustEl  = document.getElementById('mustAttend');
+  const mustSub = document.getElementById('mustSub');
+  const bunkCard = bunkEl.closest('.res-card');
+  const mustCard = mustEl.closest('.res-card');
+
+  if (isSafe) {
+    const maxBunk = Math.floor(attended * 100 / threshold - total);
+    bunkEl.textContent  = maxBunk >= 0 ? maxBunk : 0;
+    bunkEl.className    = 'rc-value val-safe';
+    bunkSub.textContent = maxBunk > 0 ? `without dropping below ${threshold}%` : 'Already at the edge!';
+    mustEl.textContent  = '0';
+    mustEl.className    = 'rc-value';
+    mustEl.style.color  = '';
+    mustSub.textContent = 'You\'re all caught up!';
+    bunkCard.classList.add('res-card-safe');   bunkCard.classList.remove('res-card-danger');
+    mustCard.classList.remove('res-card-safe','res-card-danger');
+  } else {
+    const needed = Math.ceil((threshold * total - 100 * attended) / (100 - threshold));
+    bunkEl.textContent  = '0';
+    bunkEl.className    = 'rc-value';
+    bunkEl.style.color  = '';
+    bunkSub.textContent = 'No bunking for now!';
+    mustEl.textContent  = needed;
+    mustEl.className    = 'rc-value val-danger';
+    mustSub.textContent = `consecutive classes to reach ${threshold}%`;
+    mustCard.classList.add('res-card-danger'); mustCard.classList.remove('res-card-safe');
+    bunkCard.classList.remove('res-card-safe','res-card-danger');
+  }
+}
+
+function addSubject() {
+  subjectCounter++;
+  const id = subjectCounter;
+  subjects.push({ id, name: '', attended: '', total: '' });
+
+  const card = document.createElement('div');
+  card.className = 'subject-card';
+  card.id = `subj-${id}`;
+  card.innerHTML = `
+    <input class="subject-input" type="text" placeholder="Subject name"
+      oninput="updateSubject(${id},'name',this.value)">
+    <input class="subject-number" type="number" placeholder="Present" min="0"
+      oninput="updateSubject(${id},'attended',this.value)">
+    <input class="subject-number" type="number" placeholder="Total" min="0"
+      oninput="updateSubject(${id},'total',this.value)">
+    <span class="subject-badge" id="badge-${id}">—</span>
+    <button class="delete-btn" onclick="removeSubject(${id})">×</button>
+  `;
+  document.getElementById('subjectsList').appendChild(card);
+  updateSummary();
+}
+
+function updateSubject(id, field, value) {
+  const subj = subjects.find(s => s.id === id);
+  if (!subj) return;
+  subj[field] = value;
+
+  const a = parseFloat(subj.attended), t = parseFloat(subj.total);
+  const badge = document.getElementById(`badge-${id}`);
+  if (!badge) return;
+
+  if (!isNaN(a) && !isNaN(t) && t > 0 && a >= 0 && a <= t) {
+    const pct = (a / t) * 100;
+    badge.textContent = pct.toFixed(1) + '%';
+    badge.className = 'subject-badge ' +
+      (pct >= threshold ? 'badge-safe' : pct >= threshold - 10 ? 'badge-warn' : 'badge-danger');
+  } else {
+    badge.textContent = '—';
+    badge.className = 'subject-badge';
+  }
+  updateSummary();
+}
+
+function updateAllSubjects() {
+  subjects.forEach(s => updateSubject(s.id, 'attended', s.attended));
+}
+
+function removeSubject(id) {
+  const card = document.getElementById(`subj-${id}`);
+  if (!card) return;
+  Object.assign(card.style, { opacity:'0', transform:'translateX(-8px)', transition:'all 0.2s ease' });
+  setTimeout(() => card.remove(), 200);
+  subjects = subjects.filter(s => s.id !== id);
+  updateSummary();
+}
+
+function updateSummary() {
+  const summary = document.getElementById('subSummary');
+  const valid = subjects.filter(s => {
+    const a = parseFloat(s.attended), t = parseFloat(s.total);
+    return !isNaN(a) && !isNaN(t) && t > 0 && a >= 0;
+  });
+  if (!valid.length) { summary.classList.remove('visible'); return; }
+
+  const totalAtt = valid.reduce((acc,s) => acc + parseFloat(s.attended), 0);
+  const totalCls = valid.reduce((acc,s) => acc + parseFloat(s.total), 0);
+  const pct = (totalAtt / totalCls) * 100;
+
+  document.getElementById('sumAttended').textContent = totalAtt;
+  document.getElementById('sumTotal').textContent    = totalCls;
+  const pEl = document.getElementById('sumPercent');
+  pEl.textContent = pct.toFixed(1) + '%';
+  pEl.className   = 'sum-val ' + (pct >= threshold ? 'pct-safe' : pct >= threshold - 10 ? 'pct-warn' : 'pct-danger');
+  summary.classList.add('visible');
+}
+
+// Default subjects
+['Mathematics', 'Physics', 'Computer Science'].forEach(name => {
+  addSubject();
+  const card = document.getElementById(`subj-${subjectCounter}`);
+  const subj = subjects.find(s => s.id === subjectCounter);
+  if (card && subj) { card.querySelector('input').value = name; subj.name = name; }
+});
+</script>
+</body>
+</html>
